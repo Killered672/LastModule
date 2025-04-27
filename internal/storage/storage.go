@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
 	"time"
@@ -13,6 +14,8 @@ var (
 	ErrNotFound      = errors.New("not found")
 	ErrAlreadyExists = errors.New("already exists")
 )
+
+var embedMigrations embed.FS
 
 type User struct {
 	ID       int

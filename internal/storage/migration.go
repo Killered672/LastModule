@@ -1,13 +1,10 @@
 package storage
 
 import (
-	"embed"
 	"fmt"
 
 	"github.com/pressly/goose/v3"
 )
-
-var embedMigrations embed.FS
 
 const (
 	migrationsDir = "migrations"
