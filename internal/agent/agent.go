@@ -23,7 +23,7 @@ type Agent struct {
 	ComputingPower  int
 	OrchestratorURL string
 	Conn            *grpc.ClientConn
-	Client          FinalProject.CalculatorClient
+	Client          proto.CalculatorClient
 }
 
 func NewAgent() *Agent {
@@ -47,7 +47,7 @@ func NewAgent() *Agent {
 		log.Fatalf("did not connect: %v", err)
 	}
 
-	client := FinalProject.NewCalculatorClient(conn)
+	client := proto.NewCalculatorClient(conn)
 
 	return &Agent{
 		ComputingPower:  cp,
@@ -70,7 +70,7 @@ func (a *Agent) Start() {
 
 func (a *Agent) Worker(id int) {
 	for {
-		task, err := a.Client.GetTask(context.Background(), &FinalProject.TaskRequest{
+		task, err := a.Client.GetTask(context.Background(), &proto.TaskRequest{
 			ComputingPower: int32(a.ComputingPower),
 		})
 		if err != nil {
@@ -95,7 +95,7 @@ func (a *Agent) Worker(id int) {
 			continue
 		}
 
-		_, err = a.Client.SubmitResult(context.Background(), &FinalProject.ResultRequest{
+		_, err = a.Client.SubmitResult(context.Background(), &proto.ResultRequest{
 			Id:     task.Id,
 			Result: result,
 		})

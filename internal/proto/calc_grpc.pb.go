@@ -4,7 +4,7 @@
 // - protoc             v3.19.4
 // source: internal/proto/calc.proto
 
-package FinalProject
+package proto
 
 import (
 	context "context"

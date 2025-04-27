@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"calc_service/internal/orchestrator"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -15,9 +14,38 @@ var (
 	ErrAlreadyExists = errors.New("already exists")
 )
 
+type User struct {
+	ID       int
+	Login    string
+	Password string
+}
+
+type Expression struct {
+	ID         int
+	UserID     int
+	Expression string
+	Status     string
+	Result     *float64
+	CreatedAt  time.Time
+}
+
+type Task struct {
+	ID            string
+	ExprID        int
+	Arg1          float64
+	Arg2          float64
+	Operation     string
+	OperationTime int
+	StartedAt     sql.NullTime
+	Completed     bool
+	Result        sql.NullFloat64
+}
+
 type Storage struct {
 	db *sql.DB
 }
+
+// User methods
 
 func (s *Storage) CreateUser(login, password string) (int, error) {
 	var id int
@@ -51,8 +79,34 @@ func (s *Storage) GetUserByLogin(login string) (*User, error) {
 	return u, nil
 }
 
-func (s *Storage) CreateExpression(userID int, expr string) (*orchestrator.Expression, error) {
-	e := &orchestrator.Expression{
+func (s *Storage) GetUserByID(id int) (*User, error) {
+	u := &User{}
+	err := s.db.QueryRow(
+		"SELECT id, login, password FROM users WHERE id = ?",
+		id,
+	).Scan(&u.ID, &u.Login, &u.Password)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get user by id: %w", err)
+	}
+	return u, nil
+}
+
+func (s *Storage) DeleteUser(id int) error {
+	_, err := s.db.Exec("DELETE FROM users WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+	return nil
+}
+
+// Expression methods
+
+func (s *Storage) CreateExpression(userID int, expr string) (*Expression, error) {
+	e := &Expression{
 		UserID:     userID,
 		Expression: expr,
 		Status:     "pending",
@@ -73,7 +127,30 @@ func (s *Storage) CreateExpression(userID int, expr string) (*orchestrator.Expre
 	return e, nil
 }
 
-func (s *Storage) GetExpressions(userID int) ([]*orchestrator.Expression, error) {
+func (s *Storage) GetExpressionByID(id, userID int) (*Expression, error) {
+	e := &Expression{ID: id, UserID: userID}
+	var result sql.NullFloat64
+	err := s.db.QueryRow(
+		`SELECT expression, status, result, created_at 
+		FROM expressions 
+		WHERE id = ? AND user_id = ?`,
+		id, userID,
+	).Scan(&e.Expression, &e.Status, &result, &e.CreatedAt)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get expression: %w", err)
+	}
+
+	if result.Valid {
+		e.Result = &result.Float64
+	}
+	return e, nil
+}
+
+func (s *Storage) GetExpressions(userID int) ([]*Expression, error) {
 	rows, err := s.db.Query(
 		`SELECT id, expression, status, result, created_at 
 		FROM expressions 
@@ -86,9 +163,9 @@ func (s *Storage) GetExpressions(userID int) ([]*orchestrator.Expression, error)
 	}
 	defer rows.Close()
 
-	var exprs []*orchestrator.Expression
+	var exprs []*Expression
 	for rows.Next() {
-		e := &orchestrator.Expression{UserID: userID}
+		e := &Expression{UserID: userID}
 		var result sql.NullFloat64
 		err := rows.Scan(&e.ID, &e.Expression, &e.Status, &result, &e.CreatedAt)
 		if err != nil {
@@ -102,7 +179,7 @@ func (s *Storage) GetExpressions(userID int) ([]*orchestrator.Expression, error)
 	return exprs, nil
 }
 
-func (s *Storage) UpdateExpression(e *orchestrator.Expression) error {
+func (s *Storage) UpdateExpression(e *Expression) error {
 	var result interface{}
 	if e.Result != nil {
 		result = *e.Result
@@ -117,24 +194,37 @@ func (s *Storage) UpdateExpression(e *orchestrator.Expression) error {
 	return err
 }
 
-func (s *Storage) CreateTask(t *orchestrator.Task) error {
+func (s *Storage) DeleteExpression(id, userID int) error {
+	_, err := s.db.Exec(
+		"DELETE FROM expressions WHERE id = ? AND user_id = ?",
+		id, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("delete expression: %w", err)
+	}
+	return nil
+}
+
+// Task methods
+
+func (s *Storage) CreateTask(t *Task) error {
 	_, err := s.db.Exec(
 		`INSERT INTO tasks 
-		(expression_id, arg1, arg2, operation, operation_time) 
-		VALUES (?, ?, ?, ?, ?)`,
-		t.ExprID, t.Arg1, t.Arg2, t.Operation, t.OperationTime,
+		(id, expression_id, arg1, arg2, operation, operation_time) 
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		t.ID, t.ExprID, t.Arg1, t.Arg2, t.Operation, t.OperationTime,
 	)
 	return err
 }
 
-func (s *Storage) GetPendingTask() (*orchestrator.Task, error) {
+func (s *Storage) GetPendingTask() (*Task, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	t := &orchestrator.Task{}
+	t := &Task{}
 	err = tx.QueryRow(
 		`SELECT t.id, t.expression_id, t.arg1, t.arg2, t.operation, t.operation_time 
 		FROM tasks t
@@ -162,6 +252,54 @@ func (s *Storage) GetPendingTask() (*orchestrator.Task, error) {
 
 	err = tx.Commit()
 	return t, err
+}
+
+func (s *Storage) GetTaskByID(id string) (*Task, error) {
+	t := &Task{}
+	err := s.db.QueryRow(
+		`SELECT id, expression_id, arg1, arg2, operation, operation_time, 
+		started_at, completed, result 
+		FROM tasks WHERE id = ?`,
+		id,
+	).Scan(
+		&t.ID, &t.ExprID, &t.Arg1, &t.Arg2, &t.Operation, &t.OperationTime,
+		&t.StartedAt, &t.Completed, &t.Result,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get task: %w", err)
+	}
+	return t, nil
+}
+
+func (s *Storage) GetTasksByExpressionID(exprID int) ([]*Task, error) {
+	rows, err := s.db.Query(
+		`SELECT id, arg1, arg2, operation, operation_time, 
+		started_at, completed, result 
+		FROM tasks WHERE expression_id = ?`,
+		exprID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get tasks: %w", err)
+	}
+	defer rows.Close()
+
+	var tasks []*Task
+	for rows.Next() {
+		t := &Task{ExprID: exprID}
+		err := rows.Scan(
+			&t.ID, &t.Arg1, &t.Arg2, &t.Operation, &t.OperationTime,
+			&t.StartedAt, &t.Completed, &t.Result,
+		)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, t)
+	}
+	return tasks, nil
 }
 
 func (s *Storage) CompleteTask(taskID string, result float64) error {
@@ -201,6 +339,30 @@ func (s *Storage) CompleteTask(taskID string, result float64) error {
 
 	return tx.Commit()
 }
+
+func (s *Storage) GetPendingTasksCount() (int, error) {
+	var count int
+	err := s.db.QueryRow(
+		"SELECT COUNT(*) FROM tasks WHERE completed = FALSE",
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("get pending tasks count: %w", err)
+	}
+	return count, nil
+}
+
+func (s *Storage) GetCompletedTasksCount() (int, error) {
+	var count int
+	err := s.db.QueryRow(
+		"SELECT COUNT(*) FROM tasks WHERE completed = TRUE",
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("get completed tasks count: %w", err)
+	}
+	return count, nil
+}
+
+// Helper methods
 
 func isDuplicate(err error) bool {
 	return err != nil && err.Error() == "UNIQUE constraint failed: users.login"
@@ -243,6 +405,7 @@ func (s *Storage) Init() error {
 			expression TEXT NOT NULL,
 			status TEXT NOT NULL,
 			result REAL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY(user_id) REFERENCES users(id)
 		);
 
@@ -253,11 +416,11 @@ func (s *Storage) Init() error {
 			arg2 REAL NOT NULL,
 			operation TEXT NOT NULL,
 			operation_time INTEGER NOT NULL,
+			started_at DATETIME,
 			completed BOOLEAN DEFAULT FALSE,
+			result REAL,
 			FOREIGN KEY(expression_id) REFERENCES expressions(id)
 		);
 	`)
 	return err
 }
-
-// Добавьте методы для работы с пользователями, выражениями и задачами

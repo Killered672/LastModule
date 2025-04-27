@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"calc_service/internal/auth"
+	"calc_service/internal/storage"
 )
 
 type Config struct {
@@ -24,10 +25,33 @@ type Config struct {
 	TimeDivisions       int
 }
 
-type Orchestrator1 struct {
-	Config  *Config
-	Storage *storage.Storage
-	mu      sync.RWMutex
+type Orchestrator struct {
+	Config      *Config
+	exprStore   map[string]*Expression
+	taskStore   map[string]*Task
+	taskQueue   []*Task
+	mu          sync.Mutex
+	exprCounter int64
+	taskCounter int64
+	Storage     *storage.Storage
+}
+
+type Expression struct {
+	ID     string   `json:"id"`
+	Expr   string   `json:"expression"`
+	Status string   `json:"status"`
+	Result *float64 `json:"result,omitempty"`
+	AST    *ASTNode `json:"-"`
+}
+
+type Task struct {
+	ID            string   `json:"id"`
+	ExprID        string   `json:"-"`
+	Arg1          float64  `json:"arg1"`
+	Arg2          float64  `json:"arg2"`
+	Operation     string   `json:"operation"`
+	OperationTime int      `json:"operation_time"`
+	Node          *ASTNode `json:"-"`
 }
 
 func Configuration() *Config {
@@ -37,7 +61,6 @@ func Configuration() *Config {
 	}
 
 	ta, _ := strconv.Atoi(os.Getenv("TIME_ADDITION_MS"))
-
 	if ta == 0 {
 		ta = 100
 	}
@@ -66,26 +89,7 @@ func Configuration() *Config {
 	}
 }
 
-type Orchestrator struct {
-	Config      *Config
-	exprStore   map[string]*Expression
-	taskStore   map[string]*Task
-	taskQueue   []*Task
-	mu          sync.Mutex
-	exprCounter int64
-	taskCounter int64
-}
-
 func NewOrchestrator() *Orchestrator {
-	return &Orchestrator{
-		Config:    Configuration(),
-		exprStore: make(map[string]*Expression),
-		taskStore: make(map[string]*Task),
-		taskQueue: make([]*Task, 0),
-	}
-}
-
-func NewOrchestrator1() *Orchestrator {
 	storage, err := storage.NewStorage("calc_service.db")
 	if err != nil {
 		log.Fatal(err)
@@ -97,8 +101,11 @@ func NewOrchestrator1() *Orchestrator {
 	}
 
 	return &Orchestrator{
-		Config:  Configuration(),
-		Storage: storage,
+		Config:    Configuration(),
+		Storage:   storage,
+		exprStore: make(map[string]*Expression),
+		taskStore: make(map[string]*Task),
+		taskQueue: make([]*Task, 0),
 	}
 }
 
@@ -228,26 +235,12 @@ func (o *Orchestrator) authMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-type Expression struct {
-	ID     string   `json:"id"`
-	Expr   string   `json:"expression"`
-	Status string   `json:"status"`
-	Result *float64 `json:"result,omitempty"`
-	AST    *ASTNode `json:"-"`
-}
-
-type Task struct {
-	ID            string   `json:"id"`
-	ExprID        string   `json:"-"`
-	Arg1          float64  `json:"arg1"`
-	Arg2          float64  `json:"arg2"`
-	Operation     string   `json:"operation"`
-	OperationTime int      `json:"operation_time"`
-	Node          *ASTNode `json:"-"`
-}
-
 func (o *Orchestrator) calculateHandler(w http.ResponseWriter, r *http.Request) {
-	userID := auth.GetUserIDFromContext(r.Context())
+	userID, ok := r.Context().Value("userID").(int)
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
 
 	var req struct {
 		Expression string `json:"expression"`
@@ -257,16 +250,22 @@ func (o *Orchestrator) calculateHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	expr, err := o.Storage.CreateExpression(userID, req.Expression)
+	dbExpr, err := o.Storage.CreateExpression(userID, req.Expression)
 	if err != nil {
 		http.Error(w, `{"error":"Failed to create expression"}`, http.StatusInternalServerError)
 		return
 	}
 
+	expr := &Expression{
+		ID:     strconv.Itoa(dbExpr.ID),
+		Expr:   req.Expression,
+		Status: "pending",
+	}
+
 	ast, err := ParseAST(req.Expression)
 	if err != nil {
 		o.Storage.UpdateExpression(&storage.Expression{
-			ID:     expr.ID,
+			ID:     dbExpr.ID,
 			Status: "error",
 		})
 		http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusUnprocessableEntity)
@@ -282,36 +281,66 @@ func (o *Orchestrator) calculateHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (o *Orchestrator) expressionsHandler(w http.ResponseWriter, r *http.Request) {
-	userID := auth.GetUserIDFromContext(r.Context())
+	userID, ok := r.Context().Value("userID").(int)
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
 
-	exprs, err := o.Storage.GetExpressions(userID)
+	dbExprs, err := o.Storage.GetExpressions(userID)
 	if err != nil {
 		http.Error(w, `{"error":"Failed to get expressions"}`, http.StatusInternalServerError)
 		return
 	}
 
+	exprs := make([]*Expression, len(dbExprs))
+	for i, dbExpr := range dbExprs {
+		exprs[i] = &Expression{
+			ID:     strconv.Itoa(dbExpr.ID),
+			Expr:   dbExpr.Expression,
+			Status: dbExpr.Status,
+			Result: dbExpr.Result,
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"expressions": exprs})
 }
+
 func (o *Orchestrator) expressionIDHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, `{"error":"Wrong Method"}`, http.StatusMethodNotAllowed)
 		return
 	}
 
-	id := r.URL.Path[len("/api/v1/expressions/"):]
-	o.mu.Lock()
-	expr, ok := o.exprStore[id]
-	o.mu.Unlock()
-
+	userID, ok := r.Context().Value("userID").(int)
 	if !ok {
-		http.Error(w, `{"error":"Expression not found"}`, http.StatusNotFound)
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
 		return
 	}
 
-	if expr.AST != nil && expr.AST.IsLeaf {
-		expr.Status = "completed"
-		expr.Result = &expr.AST.Value
+	idStr := r.URL.Path[len("/api/v1/expressions/"):]
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, `{"error":"Invalid expression ID"}`, http.StatusBadRequest)
+		return
+	}
+
+	dbExpr, err := o.Storage.GetExpressionByID(id, userID)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			http.Error(w, `{"error":"Expression not found"}`, http.StatusNotFound)
+			return
+		}
+		http.Error(w, `{"error":"Failed to get expression"}`, http.StatusInternalServerError)
+		return
+	}
+
+	expr := &Expression{
+		ID:     idStr,
+		Expr:   dbExpr.Expression,
+		Status: dbExpr.Status,
+		Result: dbExpr.Result,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -356,7 +385,6 @@ func (o *Orchestrator) postTaskHandler(w http.ResponseWriter, r *http.Request) {
 func (o *Orchestrator) Tasks(expr *Expression) {
 	var traverse func(node *ASTNode)
 	traverse = func(node *ASTNode) {
-
 		if node == nil || node.IsLeaf {
 			return
 		}

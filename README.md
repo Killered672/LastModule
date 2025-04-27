@@ -1,13 +1,13 @@
-# Module-1,2
-Итоговая задача модуля 1+2 Яндекс лицея.
+# Module-1,2,3
+Итоговая задача модуля 1+2+5 Яндекс лицея.
 
-Этот проект реализует веб-сервис, принимающий выражение через Http запрос и возвращабщий результат вычислений.
+Этот проект реализует веб-сервис, принимающий выражение через Http запрос и возвращабщий результат вычислений,имеющий регистарцию и хранение данных пользователей.
 
 Инструкция по запуску:
 
 1)Убедитесь, что у вас установлен Go (версия 1.16 или выше).
 
-2)Скопируйте репозиторий(через git bash ):
+2)Скопируйте репозиторий(через git bash):
 
 ```bash
 git clone https://github.com/Killered672/LastModule
@@ -35,7 +35,7 @@ go run cmd/orchestrator.start/main.go
 Опять переходим в репозиторию с проектом:
 
 ```bash
-cd Module2calc
+cd LastModule
 ```
 
 Затем запускаем agent:
@@ -88,6 +88,7 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
 ```bash
 curl --location 'http://localhost:8080/api/v1/calculate' \
 --header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_JWT_TOKEN' \
 --data '
 {
   "expression": "2*2+2"
