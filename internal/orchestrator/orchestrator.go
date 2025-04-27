@@ -447,10 +447,8 @@ func (o *Orchestrator) RunServer() error {
 		}
 	})
 
-	mux.Handle("/", o.authMiddleware(protected))
-
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, `{"error":"Not Found"}`, http.StatusNotFound)
+	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"error":"API Not Found"}`, http.StatusNotFound)
 	})
 
 	go func() {
