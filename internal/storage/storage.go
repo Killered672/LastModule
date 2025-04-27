@@ -204,8 +204,6 @@ func (s *Storage) DeleteExpression(id, userID int) error {
 	return nil
 }
 
-// Task methods
-
 func (s *Storage) CreateTask(t *Task) error {
 	_, err := s.db.Exec(
 		`INSERT INTO tasks 
@@ -366,25 +364,15 @@ func isDuplicate(err error) bool {
 }
 
 func NewStorage(dbPath string) (*Storage, error) {
-	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on&_journal_mode=WAL")
+	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on")
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
 
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("ping db: %w", err)
-	}
-
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
-
 	storage := &Storage{db: db}
-
-	if err := storage.Migrate(); err != nil {
-		return nil, fmt.Errorf("migrate: %w", err)
+	if err := storage.Init(); err != nil {
+		return nil, fmt.Errorf("init: %w", err)
 	}
-
 	return storage, nil
 }
 
