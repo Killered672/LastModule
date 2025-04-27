@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"calc_service/internal/proto"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -34,7 +35,7 @@ func NewAgent() *Agent {
 
 	orchestratorURL := os.Getenv("ORCHESTRATOR_URL")
 	if orchestratorURL == "" {
-		orchestratorURL = "localhost:50051"
+		orchestratorURL = "localhost:8080"
 	}
 
 	conn, err := grpc.Dial(
