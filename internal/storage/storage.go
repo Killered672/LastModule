@@ -45,8 +45,6 @@ type Storage struct {
 	db *sql.DB
 }
 
-// User methods
-
 func (s *Storage) CreateUser(login, password string) (int, error) {
 	var id int
 	err := s.db.QueryRow(
@@ -102,8 +100,6 @@ func (s *Storage) DeleteUser(id int) error {
 	}
 	return nil
 }
-
-// Expression methods
 
 func (s *Storage) CreateExpression(userID int, expr string) (*Expression, error) {
 	e := &Expression{
@@ -362,8 +358,6 @@ func (s *Storage) GetCompletedTasksCount() (int, error) {
 	return count, nil
 }
 
-// Helper methods
-
 func isDuplicate(err error) bool {
 	return err != nil && err.Error() == "UNIQUE constraint failed: users.login"
 }
@@ -393,34 +387,34 @@ func NewStorage(dbPath string) (*Storage, error) {
 
 func (s *Storage) Init() error {
 	_, err := s.db.Exec(`
-		CREATE TABLE IF NOT EXISTS users (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			login TEXT NOT NULL UNIQUE,
-			password TEXT NOT NULL
-		);
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            login TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL
+        );
 
-		CREATE TABLE IF NOT EXISTS expressions (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			user_id INTEGER NOT NULL,
-			expression TEXT NOT NULL,
-			status TEXT NOT NULL,
-			result REAL,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			FOREIGN KEY(user_id) REFERENCES users(id)
-		);
+        CREATE TABLE IF NOT EXISTS expressions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            expression TEXT NOT NULL,
+            status TEXT NOT NULL,
+            result REAL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
 
-		CREATE TABLE IF NOT EXISTS tasks (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			expression_id INTEGER NOT NULL,
-			arg1 REAL NOT NULL,
-			arg2 REAL NOT NULL,
-			operation TEXT NOT NULL,
-			operation_time INTEGER NOT NULL,
-			started_at DATETIME,
-			completed BOOLEAN DEFAULT FALSE,
-			result REAL,
-			FOREIGN KEY(expression_id) REFERENCES expressions(id)
-		);
-	`)
+        CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            expression_id INTEGER NOT NULL,
+            arg1 REAL NOT NULL,
+            arg2 REAL NOT NULL,
+            operation TEXT NOT NULL,
+            operation_time INTEGER NOT NULL,
+            started_at DATETIME,
+            completed BOOLEAN DEFAULT FALSE,
+            result REAL,
+            FOREIGN KEY(expression_id) REFERENCES expressions(id)
+        );
+    `)
 	return err
 }
