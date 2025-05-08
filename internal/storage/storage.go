@@ -5,6 +5,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -215,8 +216,14 @@ func (s *Storage) CreateTask(t *Task) error {
 }
 
 func (s *Storage) GetPendingTask() (*Task, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
 	t := &Task{}
-	err := s.db.QueryRow(
+	err = tx.QueryRow(
 		`SELECT id, expression_id, arg1, arg2, operation, operation_time 
          FROM tasks 
          WHERE completed = FALSE 
@@ -225,9 +232,22 @@ func (s *Storage) GetPendingTask() (*Task, error) {
 		&t.ID, &t.ExprID, &t.Arg1, &t.Arg2, &t.Operation, &t.OperationTime,
 	)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
-	return t, nil
+
+	_, err = tx.Exec(
+		`UPDATE tasks SET started_at = datetime('now') WHERE id = ?`,
+		t.ID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	err = tx.Commit()
+	return t, err
 }
 
 func (s *Storage) GetTaskByID(id string) (*Task, error) {
@@ -288,31 +308,85 @@ func (s *Storage) CompleteTask(taskID string, result float64) error {
 	var exprID int
 	err = tx.QueryRow(
 		`UPDATE tasks 
-         SET completed = TRUE, result = ? 
+         SET completed = TRUE, result = ?
          WHERE id = ? 
          RETURNING expression_id`,
 		result, taskID,
 	).Scan(&exprID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update task: %v", err)
 	}
 
-	_, err = tx.Exec(
-		`UPDATE expressions 
-         SET status = 'completed', result = ?
-         WHERE id = ? AND NOT EXISTS (
-             SELECT 1 FROM tasks 
-             WHERE expression_id = ? AND completed = FALSE
-         )`,
-		result, exprID, exprID,
-	)
+	var pendingCount int
+	err = tx.QueryRow(
+		`SELECT COUNT(*) FROM tasks 
+         WHERE expression_id = ? AND completed = FALSE`,
+		exprID,
+	).Scan(&pendingCount)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check pending tasks: %v", err)
+	}
+
+	if pendingCount == 0 {
+		rows, err := tx.Query(
+			`SELECT operation, result FROM tasks 
+             WHERE expression_id = ? ORDER BY id`,
+			exprID,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get task results: %v", err)
+		}
+		defer rows.Close()
+
+		var finalResult float64
+		var hasError bool
+
+		for rows.Next() {
+			var op string
+			var res float64
+			if err := rows.Scan(&op, &res); err != nil {
+				hasError = true
+				break
+			}
+
+			if op == "/" && res == math.Inf(1) {
+				hasError = true
+				break
+			}
+		}
+
+		if hasError {
+			_, err = tx.Exec(
+				`UPDATE expressions 
+                 SET status = 'error'
+                 WHERE id = ?`,
+				exprID,
+			)
+		} else {
+			err = tx.QueryRow(
+				`SELECT SUM(result) FROM tasks 
+                 WHERE expression_id = ?`,
+				exprID,
+			).Scan(&finalResult)
+			if err != nil {
+				return fmt.Errorf("failed to calculate final result: %v", err)
+			}
+
+			_, err = tx.Exec(
+				`UPDATE expressions 
+                 SET status = 'completed', result = ?
+                 WHERE id = ?`,
+				finalResult, exprID,
+			)
+		}
+
+		if err != nil {
+			return fmt.Errorf("failed to update expression: %v", err)
+		}
 	}
 
 	return tx.Commit()
 }
-
 func (s *Storage) GetPendingTasksCount() (int, error) {
 	var count int
 	err := s.db.QueryRow(

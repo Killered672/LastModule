@@ -141,8 +141,6 @@ curl --location 'http://localhost:8080/api/v1/expressions' \
 {"error":"User already exists"}
 ```
 
-
-
 Ошибка 404(отсутствие выражения ):
 
 ```bash
@@ -169,6 +167,24 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
 }
 ```
 
+Ошибка неправильного знака:
+
+```bash
+curl --location 'http://localhost:8080/api/v1/calculate' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_JWT_TOKEN' \
+--data '
+{
+  "expression": "2\0"
+}'
+```
+
+Ответ:
+
+```bash
+{"error":"Invalid Body"}
+```
+
 Ошибка 500 (внутренняя ошибка сервера ):
 
 ```bash
@@ -183,7 +199,7 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
 
 ```bash
 {
-  Worker n: error computing task 3: division by zero
+  Worker: error computing task : division by zero
 }
 ```
 
@@ -192,7 +208,7 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
 1)Сначала опять переходим в папку с модулем.
 
 ```bash
-cd Module2calc
+cd LastModule
 ```
 
 2)Затем запускаем тестирование:

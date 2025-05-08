@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"time"
@@ -86,14 +87,16 @@ func (a *Agent) Worker(id int) {
 			continue
 		}
 
-		log.Printf("Worker %d: received task %s: %f %s %f, simulating %d ms",
-			id, task.Id, task.Arg1, task.Operation, task.Arg2, task.OperationTime)
-
 		time.Sleep(time.Duration(task.OperationTime) * time.Millisecond)
 
 		result, err := Calculations(task.Operation, task.Arg1, task.Arg2)
 		if err != nil {
 			log.Printf("Worker %d: error computing task %s: %v", id, task.Id, err)
+
+			_, _ = a.Client.SubmitResult(context.Background(), &proto.ResultRequest{
+				Id:     task.Id,
+				Result: math.NaN(),
+			})
 			continue
 		}
 
@@ -103,10 +106,10 @@ func (a *Agent) Worker(id int) {
 		})
 		if err != nil {
 			log.Printf("Worker %d: error submitting result for task %s: %v", id, task.Id, err)
-			continue
+		} else {
+			log.Printf("Worker %d: completed task %s: %.2f %s %.2f = %.2f",
+				id, task.Id, task.Arg1, task.Operation, task.Arg2, result)
 		}
-
-		log.Printf("Worker %d: successfully completed task %s with result %f", id, task.Id, result)
 	}
 }
 
