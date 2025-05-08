@@ -442,32 +442,28 @@ func (o *Orchestrator) Tasks(expr *Expression) {
 	log.Printf("Creating tasks for expression %s", expr.ID)
 	exprID, _ := strconv.Atoi(expr.ID)
 
-	results := make(map[*ASTNode]float64)
+	var stack []*ASTNode
+	var tasks []*Task
 
-	var traverse func(node *ASTNode)
-	traverse = func(node *ASTNode) {
+	var postOrder func(node *ASTNode)
+	postOrder = func(node *ASTNode) {
 		if node == nil {
 			return
 		}
-		if node.IsLeaf {
-			results[node] = node.Value
-			return
-		}
-		traverse(node.Left)
-		traverse(node.Right)
-	}
-	traverse(expr.AST)
 
-	var createTasks func(node *ASTNode)
-	createTasks = func(node *ASTNode) {
-		if node == nil || node.IsLeaf {
-			return
-		}
+		postOrder(node.Left)
+		postOrder(node.Right)
 
-		createTasks(node.Left)
-		createTasks(node.Right)
+		if !node.IsLeaf {
+			if len(stack) < 2 {
+				log.Printf("Not enough operands for operation %s", node.Operator)
+				return
+			}
 
-		if _, ok := results[node]; !ok {
+			right := stack[len(stack)-1]
+			left := stack[len(stack)-2]
+			stack = stack[:len(stack)-2]
+
 			o.taskCounter++
 			taskID := fmt.Sprintf("%d", o.taskCounter)
 
@@ -485,38 +481,47 @@ func (o *Orchestrator) Tasks(expr *Expression) {
 				opTime = 100
 			}
 
-			leftVal := results[node.Left]
-			rightVal := results[node.Right]
-
 			task := &Task{
 				ID:            taskID,
 				ExprID:        expr.ID,
-				Arg1:          leftVal,
-				Arg2:          rightVal,
+				Arg1:          left.Value,
+				Arg2:          right.Value,
 				Operation:     node.Operator,
 				OperationTime: opTime,
 				Node:          node,
 			}
 
-			if err := o.Storage.CreateTask(&storage.Task{
-				ID:            task.ID,
-				ExprID:        exprID,
-				Arg1:          task.Arg1,
-				Arg2:          task.Arg2,
-				Operation:     task.Operation,
-				OperationTime: task.OperationTime,
-			}); err != nil {
-				log.Printf("Failed to create task: %v", err)
-				return
-			}
+			tasks = append(tasks, task)
 
-			o.taskStore[task.ID] = task
-			o.taskQueue = append(o.taskQueue, task)
-			log.Printf("Created task %s: %.2f %s %.2f",
-				task.ID, task.Arg1, task.Operation, task.Arg2)
+			resultNode := &ASTNode{
+				IsLeaf: true,
+				Value:  0,
+			}
+			stack = append(stack, resultNode)
+		} else {
+			stack = append(stack, node)
 		}
 	}
-	createTasks(expr.AST)
+
+	postOrder(expr.AST)
+
+	for _, task := range tasks {
+		if err := o.Storage.CreateTask(&storage.Task{
+			ID:            task.ID,
+			ExprID:        exprID,
+			Arg1:          task.Arg1,
+			Arg2:          task.Arg2,
+			Operation:     task.Operation,
+			OperationTime: task.OperationTime,
+		}); err != nil {
+			log.Printf("Failed to create task: %v", err)
+			continue
+		}
+		o.taskStore[task.ID] = task
+		o.taskQueue = append(o.taskQueue, task)
+		log.Printf("Created task %s: %.2f %s %.2f",
+			task.ID, task.Arg1, task.Operation, task.Arg2)
+	}
 }
 
 func (o *Orchestrator) RunServer() error {

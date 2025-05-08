@@ -182,7 +182,7 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
 Ответ:
 
 ```bash
-{"error":"Invalid Body"}
+{"error":"Invalid token"}
 ```
 
 Ошибка 500 (внутренняя ошибка сервера ):
