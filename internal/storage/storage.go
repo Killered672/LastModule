@@ -207,47 +207,27 @@ func (s *Storage) DeleteExpression(id, userID int) error {
 func (s *Storage) CreateTask(t *Task) error {
 	_, err := s.db.Exec(
 		`INSERT INTO tasks 
-		(id, expression_id, arg1, arg2, operation, operation_time) 
-		VALUES (?, ?, ?, ?, ?, ?)`,
+        (id, expression_id, arg1, arg2, operation, operation_time) 
+        VALUES (?, ?, ?, ?, ?, ?)`,
 		t.ID, t.ExprID, t.Arg1, t.Arg2, t.Operation, t.OperationTime,
 	)
 	return err
 }
 
 func (s *Storage) GetPendingTask() (*Task, error) {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-
 	t := &Task{}
-	err = tx.QueryRow(
-		`SELECT t.id, t.expression_id, t.arg1, t.arg2, t.operation, t.operation_time 
-        FROM tasks t
-        JOIN expressions e ON t.expression_id = e.id
-        WHERE t.completed = FALSE
-        ORDER BY e.created_at ASC, t.id ASC
-        LIMIT 1`).Scan(
+	err := s.db.QueryRow(
+		`SELECT id, expression_id, arg1, arg2, operation, operation_time 
+         FROM tasks 
+         WHERE completed = FALSE 
+         ORDER BY id ASC 
+         LIMIT 1`).Scan(
 		&t.ID, &t.ExprID, &t.Arg1, &t.Arg2, &t.Operation, &t.OperationTime,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
-		}
 		return nil, err
 	}
-
-	_, err = tx.Exec(
-		"UPDATE tasks SET started_at = datetime('now') WHERE id = ?",
-		t.ID,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	err = tx.Commit()
-	return t, err
+	return t, nil
 }
 
 func (s *Storage) GetTaskByID(id string) (*Task, error) {
@@ -307,7 +287,7 @@ func (s *Storage) CompleteTask(taskID string, result float64) error {
 
 	var exprID int
 	err = tx.QueryRow(
-		"UPDATE tasks SET completed = TRUE, result = ?, completed_at = datetime('now') WHERE id = ? RETURNING expression_id",
+		"UPDATE tasks SET completed = TRUE, result = ? WHERE id = ? RETURNING expression_id",
 		result, taskID,
 	).Scan(&exprID)
 	if err != nil {

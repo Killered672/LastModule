@@ -424,6 +424,9 @@ func (o *Orchestrator) postTaskHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *Orchestrator) Tasks(expr *Expression) {
+	log.Printf("Creating tasks for expression %s", expr.ID)
+	exprID, _ := strconv.Atoi(expr.ID)
+
 	var traverse func(node *ASTNode)
 	traverse = func(node *ASTNode) {
 		if node == nil || node.IsLeaf {
@@ -432,11 +435,13 @@ func (o *Orchestrator) Tasks(expr *Expression) {
 
 		traverse(node.Left)
 		traverse(node.Right)
+
 		if node.Left != nil && node.Right != nil && node.Left.IsLeaf && node.Right.IsLeaf {
 			if !node.TaskScheduled {
 				o.taskCounter++
 				taskID := fmt.Sprintf("%d", o.taskCounter)
 				var opTime int
+
 				switch node.Operator {
 				case "+":
 					opTime = o.Config.TimeAddition
@@ -450,7 +455,25 @@ func (o *Orchestrator) Tasks(expr *Expression) {
 					opTime = 100
 				}
 
-				task := &Task{
+				task := &storage.Task{
+					ID:            taskID,
+					ExprID:        exprID,
+					Arg1:          node.Left.Value,
+					Arg2:          node.Right.Value,
+					Operation:     node.Operator,
+					OperationTime: opTime,
+				}
+
+				if err := o.Storage.CreateTask(task); err != nil {
+					log.Printf("Failed to create task: %v", err)
+					return
+				}
+
+				log.Printf("Created task %s: %.2f %s %.2f",
+					taskID, node.Left.Value, node.Operator, node.Right.Value)
+
+				node.TaskScheduled = true
+				o.taskStore[taskID] = &Task{
 					ID:            taskID,
 					ExprID:        expr.ID,
 					Arg1:          node.Left.Value,
@@ -459,9 +482,7 @@ func (o *Orchestrator) Tasks(expr *Expression) {
 					OperationTime: opTime,
 					Node:          node,
 				}
-				node.TaskScheduled = true
-				o.taskStore[taskID] = task
-				o.taskQueue = append(o.taskQueue, task)
+				o.taskQueue = append(o.taskQueue, o.taskStore[taskID])
 			}
 		}
 	}

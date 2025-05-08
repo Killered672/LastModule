@@ -35,7 +35,11 @@ export TIME_DIVISIONS_MS=400
 go run cmd/orchestrator.start/main.go
 ```
 
-Вы получите ответ  Starting Orchestrator on port 8080.
+Вы получите ответ:
+Starting Orchestrator on port 8080
+Starting gRPC server on port 50051
+Starting HTTP server on port 8080
+
 
 В новом bash(у меня так,может у вас будет доcтупно и в одном и том же ):
 
@@ -60,6 +64,11 @@ Starting worker 0
 Starting worker 1
 Starting worker 2
 Starting worker 3
+2025/05/08 15:39:33 Worker 2: error getting task: rpc error: code = Unknown desc = not found
+2025/05/08 15:39:33 Worker 0: error getting task: rpc error: code = Unknown desc = not found
+2025/05/08 15:39:33 Worker 3: error getting task: rpc error: code = Unknown desc = not found
+2025/05/08 15:39:33 Worker 1: error getting task: rpc error: code = Unknown desc = not found
+(это потому что нет активных задач)
 
 Регестрируем нового пользователя:
 
@@ -125,6 +134,14 @@ curl --location 'http://localhost:8080/api/v1/expressions' \
 ```
 
 Ошибки при запросах:
+
+Ошибка при создании пользователя который уже существует:
+
+```bash
+{"error":"User already exists"}
+```
+
+
 
 Ошибка 404(отсутствие выражения ):
 
