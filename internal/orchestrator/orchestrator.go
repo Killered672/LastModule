@@ -487,18 +487,18 @@ func (o *Orchestrator) RunServer() error {
 	protected.HandleFunc("/api/v1/calculate", o.calculateHandler)
 	protected.HandleFunc("/api/v1/expressions", o.expressionsHandler)
 	protected.HandleFunc("/api/v1/expressions/", o.expressionIDHandler)
+
 	protected.HandleFunc("/internal/task", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			o.getTaskHandler(w, r)
 		} else if r.Method == http.MethodPost {
 			o.postTaskHandler(w, r)
-		} else {
-			http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
 		}
 	})
 
 	mux := http.NewServeMux()
 	mux.Handle("/", o.authMiddleware(protected))
+
 	mux.HandleFunc("/api/v1/login", o.loginHandler)
 	mux.HandleFunc("/api/v1/register", o.registerHandler)
 
