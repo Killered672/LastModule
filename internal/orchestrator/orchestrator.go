@@ -27,7 +27,8 @@ type server struct {
 }
 
 type Config struct {
-	Addr                string
+	HTTPAddr            string
+	GRPCAddr            string
 	TimeAddition        int
 	TimeSubtraction     int
 	TimeMultiplications int
@@ -64,9 +65,14 @@ type Task struct {
 }
 
 func Configuration() *Config {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	httpPort := os.Getenv("HTTP_PORT")
+	if httpPort == "" {
+		httpPort = "8080"
+	}
+
+	grpcPort := os.Getenv("GRPC_PORT")
+	if grpcPort == "" {
+		grpcPort = "50051"
 	}
 
 	ta, _ := strconv.Atoi(os.Getenv("TIME_ADDITION_MS"))
@@ -90,7 +96,8 @@ func Configuration() *Config {
 	}
 
 	return &Config{
-		Addr:                port,
+		HTTPAddr:            httpPort,
+		GRPCAddr:            grpcPort,
 		TimeAddition:        ta,
 		TimeSubtraction:     ts,
 		TimeMultiplications: tm,
@@ -459,7 +466,7 @@ func (o *Orchestrator) Tasks(expr *Expression) {
 }
 
 func (o *Orchestrator) RunServer() error {
-	lis, err := net.Listen("tcp", ":"+o.Config.Addr)
+	lis, err := net.Listen("tcp", ":"+o.Config.GRPCAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %v", err)
 	}
@@ -468,7 +475,7 @@ func (o *Orchestrator) RunServer() error {
 	proto.RegisterCalculatorServer(grpcServer, &server{o: o})
 
 	go func() {
-		log.Printf("Starting gRPC server on port %s", o.Config.Addr)
+		log.Printf("Starting gRPC server on port %s", o.Config.GRPCAddr)
 		if err := grpcServer.Serve(lis); err != nil {
 			log.Fatalf("failed to serve: %v", err)
 		}
@@ -507,5 +514,5 @@ func (o *Orchestrator) RunServer() error {
 			o.mu.Unlock()
 		}
 	}()
-	return http.ListenAndServe(":"+o.Config.Addr, mux)
+	return http.ListenAndServe(":"+o.Config.HTTPAddr, mux)
 }

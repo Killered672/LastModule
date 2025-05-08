@@ -26,6 +26,7 @@ cd LastModule
 Запускаем orchestator:
 
 ```bash
+export ORCHESTRATOR_URL=localhost:50051
 export TIME_ADDITION_MS=200
 export TIME_SUBTRACTION_MS=200
 export TIME_MULTIPLICATIONS_MS=300
@@ -48,7 +49,7 @@ cd LastModule
 
 ```bash
 export COMPUTING_POWER=4
-export ORCHESTRATOR_URL=localhost:8080
+export ORCHESTRATOR_URL=localhost:50051
 
  go run cmd/agent.start/main.go
 ```
