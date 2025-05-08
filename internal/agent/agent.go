@@ -46,6 +46,7 @@ func NewAgent() *Agent {
 	)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
+		return nil
 	}
 
 	client := proto.NewCalculatorClient(conn)
