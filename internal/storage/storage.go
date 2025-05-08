@@ -164,7 +164,7 @@ func (s *Storage) GetExpressions(userID int) ([]*Expression, error) {
 
 	var exprs []*Expression
 	for rows.Next() {
-		e := &Expression{UserID: userID}
+		e := &Expression{}
 		var result sql.NullFloat64
 		err := rows.Scan(&e.ID, &e.Expression, &e.Status, &result)
 		if err != nil {
@@ -287,30 +287,27 @@ func (s *Storage) CompleteTask(taskID string, result float64) error {
 
 	var exprID int
 	err = tx.QueryRow(
-		"UPDATE tasks SET completed = TRUE, result = ? WHERE id = ? RETURNING expression_id",
+		`UPDATE tasks 
+         SET completed = TRUE, result = ? 
+         WHERE id = ? 
+         RETURNING expression_id`,
 		result, taskID,
 	).Scan(&exprID)
 	if err != nil {
 		return err
 	}
 
-	var pendingTasks int
-	err = tx.QueryRow(
-		"SELECT COUNT(*) FROM tasks WHERE expression_id = ? AND completed = FALSE",
-		exprID,
-	).Scan(&pendingTasks)
+	_, err = tx.Exec(
+		`UPDATE expressions 
+         SET status = 'completed', result = ?
+         WHERE id = ? AND NOT EXISTS (
+             SELECT 1 FROM tasks 
+             WHERE expression_id = ? AND completed = FALSE
+         )`,
+		result, exprID, exprID,
+	)
 	if err != nil {
 		return err
-	}
-
-	if pendingTasks == 0 {
-		_, err = tx.Exec(
-			"UPDATE expressions SET status = 'completed' WHERE id = ?",
-			exprID,
-		)
-		if err != nil {
-			return err
-		}
 	}
 
 	return tx.Commit()

@@ -334,21 +334,21 @@ func (o *Orchestrator) expressionsHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	exprs := make([]map[string]interface{}, len(dbExprs))
-	for i, dbExpr := range dbExprs {
-		expr := map[string]interface{}{
-			"id":         strconv.Itoa(dbExpr.ID),
-			"expression": dbExpr.Expression,
-			"status":     dbExpr.Status,
+	response := make([]map[string]interface{}, len(dbExprs))
+	for i, expr := range dbExprs {
+		item := map[string]interface{}{
+			"id":         strconv.Itoa(expr.ID),
+			"expression": expr.Expression,
+			"status":     expr.Status,
 		}
-		if dbExpr.Result != nil {
-			expr["result"] = *dbExpr.Result
+		if expr.Result != nil {
+			item["result"] = *expr.Result
 		}
-		exprs[i] = expr
+		response[i] = item
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"expressions": exprs})
+	json.NewEncoder(w).Encode(map[string]interface{}{"expressions": response})
 }
 
 func (o *Orchestrator) expressionIDHandler(w http.ResponseWriter, r *http.Request) {
