@@ -274,6 +274,7 @@ func (o *Orchestrator) authMiddleware(next http.Handler) http.Handler {
 }
 
 func (o *Orchestrator) calculateHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("Received calculate request")
 	userID, ok := r.Context().Value("userID").(int)
 	if !ok {
 		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
