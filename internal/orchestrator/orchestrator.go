@@ -334,14 +334,17 @@ func (o *Orchestrator) expressionsHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	exprs := make([]*Expression, len(dbExprs))
+	exprs := make([]map[string]interface{}, len(dbExprs))
 	for i, dbExpr := range dbExprs {
-		exprs[i] = &Expression{
-			ID:     strconv.Itoa(dbExpr.ID),
-			Expr:   dbExpr.Expression,
-			Status: dbExpr.Status,
-			Result: dbExpr.Result,
+		expr := map[string]interface{}{
+			"id":         strconv.Itoa(dbExpr.ID),
+			"expression": dbExpr.Expression,
+			"status":     dbExpr.Status,
 		}
+		if dbExpr.Result != nil {
+			expr["result"] = *dbExpr.Result
+		}
+		exprs[i] = expr
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -386,6 +389,18 @@ func (o *Orchestrator) expressionIDHandler(w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"expression": expr})
+
+	response := map[string]interface{}{
+		"id":         idStr,
+		"expression": dbExpr.Expression,
+		"status":     dbExpr.Status,
+	}
+	if dbExpr.Result != nil {
+		response["result"] = *dbExpr.Result
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"expression": response})
 }
 
 func (o *Orchestrator) getTaskHandler(w http.ResponseWriter, r *http.Request) {

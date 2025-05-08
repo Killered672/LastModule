@@ -151,14 +151,14 @@ func (s *Storage) GetExpressionByID(id, userID int) (*Expression, error) {
 
 func (s *Storage) GetExpressions(userID int) ([]*Expression, error) {
 	rows, err := s.db.Query(
-		`SELECT id, expression, status, result, created_at 
-		FROM expressions 
-		WHERE user_id = ? 
-		ORDER BY created_at DESC`,
+		`SELECT id, expression, status, result 
+         FROM expressions 
+         WHERE user_id = ? 
+         ORDER BY created_at DESC`,
 		userID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("get expressions: %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -166,7 +166,7 @@ func (s *Storage) GetExpressions(userID int) ([]*Expression, error) {
 	for rows.Next() {
 		e := &Expression{UserID: userID}
 		var result sql.NullFloat64
-		err := rows.Scan(&e.ID, &e.Expression, &e.Status, &result, &e.CreatedAt)
+		err := rows.Scan(&e.ID, &e.Expression, &e.Status, &result)
 		if err != nil {
 			return nil, err
 		}
