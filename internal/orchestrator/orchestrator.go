@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -13,9 +14,17 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/grpc"
+
 	"calc_service/internal/auth"
+	"calc_service/internal/proto"
 	"calc_service/internal/storage"
 )
+
+type server struct {
+	proto.UnimplementedCalculatorServer
+	o *Orchestrator
+}
 
 type Config struct {
 	Addr                string
@@ -87,6 +96,28 @@ func Configuration() *Config {
 		TimeMultiplications: tm,
 		TimeDivisions:       td,
 	}
+}
+
+func (s *server) GetTask(ctx context.Context, req *proto.TaskRequest) (*proto.TaskResponse, error) {
+	task, err := s.o.Storage.GetPendingTask()
+	if err != nil {
+		return nil, err
+	}
+
+	return &proto.TaskResponse{
+		Id:            task.ID,
+		Arg1:          task.Arg1,
+		Arg2:          task.Arg2,
+		Operation:     task.Operation,
+		OperationTime: int32(task.OperationTime),
+	}, nil
+}
+
+func (s *server) SubmitResult(ctx context.Context, req *proto.ResultRequest) (*proto.ResultResponse, error) {
+	if err := s.o.Storage.CompleteTask(req.Id, req.Result); err != nil {
+		return nil, err
+	}
+	return &proto.ResultResponse{Success: true}, nil
 }
 
 func NewOrchestrator() *Orchestrator {
@@ -428,6 +459,21 @@ func (o *Orchestrator) Tasks(expr *Expression) {
 }
 
 func (o *Orchestrator) RunServer() error {
+	lis, err := net.Listen("tcp", ":"+o.Config.Addr)
+	if err != nil {
+		return fmt.Errorf("failed to listen: %v", err)
+	}
+
+	grpcServer := grpc.NewServer()
+	proto.RegisterCalculatorServer(grpcServer, &server{o: o})
+
+	go func() {
+		log.Printf("Starting gRPC server on port %s", o.Config.Addr)
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("failed to serve: %v", err)
+		}
+	}()
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/api/v1/register", o.registerHandler)

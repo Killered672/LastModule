@@ -36,7 +36,7 @@ go run cmd/orchestrator.start/main.go
 
 Вы получите ответ  Starting Orchestrator on port 8080.
 
-В новом bash(у меня так,может у вас будет дотупно и в одном и том же ):
+В новом bash(у меня так,может у вас будет доcтупно и в одном и том же ):
 
 Опять переходим в репозиторию с проектом:
 
@@ -48,7 +48,7 @@ cd LastModule
 
 ```bash
 export COMPUTING_POWER=4
-export ORCHESTRATOR_URL=http://localhost:8080
+export ORCHESTRATOR_URL=localhost:8080
 
  go run cmd/agent.start/main.go
 ```

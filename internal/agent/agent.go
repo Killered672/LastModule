@@ -35,7 +35,7 @@ func NewAgent() *Agent {
 
 	orchestratorURL := os.Getenv("ORCHESTRATOR_URL")
 	if orchestratorURL == "" {
-		orchestratorURL = "localhost:127.0.0.1:8080"
+		orchestratorURL = "localhost:8080"
 	}
 
 	conn, err := grpc.Dial(
