@@ -503,9 +503,6 @@ func (o *Orchestrator) RunServer() error {
 
 	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", o.authMiddleware(protected)))
 
-	mux.HandleFunc("/api/v1/login", o.loginHandler)
-	mux.HandleFunc("/api/v1/register", o.registerHandler)
-
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"API Not Found"}`, http.StatusNotFound)
 	})
@@ -520,5 +517,7 @@ func (o *Orchestrator) RunServer() error {
 			o.mu.Unlock()
 		}
 	}()
+
+	log.Printf("Starting HTTP server on port %s", o.Config.HTTPAddr)
 	return http.ListenAndServe(":"+o.Config.HTTPAddr, mux)
 }
