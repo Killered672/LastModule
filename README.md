@@ -108,13 +108,14 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
 После можно посмотреть этап выполнения данного запроса и его результат(если уже вычислилось ):
 
 ```bash
-curl --location 'http://localhost:8080/api/v1/expressions'
+curl --location 'http://localhost:8080/api/v1/expressions' \
+--header 'Authorization: Bearer OUR_JWT_TOKEN'
 ```
 
 Вывод:
 
 ```bash
-{"expressions":[{"id":"1740240110508066400","expression":"2*2+2,"status":"pending"}]}
+{"expressions":[{"id":"1","expression":"2*2+2,"status":"pending"}]}
 ```
 
 Если вычисления выполнены то:
@@ -123,18 +124,12 @@ curl --location 'http://localhost:8080/api/v1/expressions'
 {"expression":{"id":"1","expression":"2*2+2","status":"completed","result":6}}
 ```
 
-Или узнать точный результат нужного выражения по его точному id:
-
-```bash
-curl --location 'http://localhost:8080/api/v1/expressions/id'
-```
-
 Ошибки при запросах:
 
 Ошибка 404(отсутствие выражения ):
 
 ```bash
-{"error":"Expression not found"}
+{"error":"API Not Found"}
 ```
 
 Ошибка 422 (невалидное выражение ):
@@ -142,6 +137,7 @@ curl --location 'http://localhost:8080/api/v1/expressions/id'
 ```bash
 curl --location 'http://localhost:8080/api/v1/calculate' \
 --header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_JWT_TOKEN' \
 --data '
 {
   "expression": "2+a"
