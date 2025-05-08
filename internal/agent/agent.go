@@ -92,7 +92,6 @@ func (a *Agent) Worker(id int) {
 		result, err := Calculations(task.Operation, task.Arg1, task.Arg2)
 		if err != nil {
 			log.Printf("Worker %d: error computing task %s: %v", id, task.Id, err)
-
 			_, _ = a.Client.SubmitResult(context.Background(), &proto.ResultRequest{
 				Id:     task.Id,
 				Result: math.NaN(),

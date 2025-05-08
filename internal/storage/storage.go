@@ -5,7 +5,6 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -42,7 +41,7 @@ type Task struct {
 	OperationTime int
 	StartedAt     sql.NullTime
 	Completed     bool
-	Result        sql.NullFloat64
+	Result        *float64
 }
 
 type Storage struct {
@@ -328,58 +327,23 @@ func (s *Storage) CompleteTask(taskID string, result float64) error {
 	}
 
 	if pendingCount == 0 {
-		rows, err := tx.Query(
-			`SELECT operation, result FROM tasks 
-             WHERE expression_id = ? ORDER BY id`,
-			exprID,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get task results: %v", err)
-		}
-		defer rows.Close()
-
 		var finalResult float64
-		var hasError bool
-
-		for rows.Next() {
-			var op string
-			var res float64
-			if err := rows.Scan(&op, &res); err != nil {
-				hasError = true
-				break
-			}
-
-			if op == "/" && res == math.Inf(1) {
-				hasError = true
-				break
-			}
+		err = tx.QueryRow(
+			`SELECT result FROM tasks 
+             WHERE expression_id = ? 
+             ORDER BY id DESC LIMIT 1`,
+			exprID,
+		).Scan(&finalResult)
+		if err != nil {
+			return fmt.Errorf("failed to get final result: %v", err)
 		}
 
-		if hasError {
-			_, err = tx.Exec(
-				`UPDATE expressions 
-                 SET status = 'error'
-                 WHERE id = ?`,
-				exprID,
-			)
-		} else {
-			err = tx.QueryRow(
-				`SELECT SUM(result) FROM tasks 
-                 WHERE expression_id = ?`,
-				exprID,
-			).Scan(&finalResult)
-			if err != nil {
-				return fmt.Errorf("failed to calculate final result: %v", err)
-			}
-
-			_, err = tx.Exec(
-				`UPDATE expressions 
-                 SET status = 'completed', result = ?
-                 WHERE id = ?`,
-				finalResult, exprID,
-			)
-		}
-
+		_, err = tx.Exec(
+			`UPDATE expressions 
+             SET status = 'completed', result = ?
+             WHERE id = ?`,
+			finalResult, exprID,
+		)
 		if err != nil {
 			return fmt.Errorf("failed to update expression: %v", err)
 		}
@@ -387,6 +351,7 @@ func (s *Storage) CompleteTask(taskID string, result float64) error {
 
 	return tx.Commit()
 }
+
 func (s *Storage) GetPendingTasksCount() (int, error) {
 	var count int
 	err := s.db.QueryRow(
