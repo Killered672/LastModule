@@ -224,12 +224,11 @@ func (s *Storage) GetPendingTask() (*Task, error) {
 	t := &Task{}
 	err = tx.QueryRow(
 		`SELECT t.id, t.expression_id, t.arg1, t.arg2, t.operation, t.operation_time 
-		FROM tasks t
-		JOIN expressions e ON t.expression_id = e.id
-		WHERE t.completed = FALSE
-		ORDER BY e.created_at ASC, t.id ASC
-		LIMIT 1
-		FOR UPDATE SKIP LOCKED`).Scan(
+        FROM tasks t
+        JOIN expressions e ON t.expression_id = e.id
+        WHERE t.completed = FALSE
+        ORDER BY e.created_at ASC, t.id ASC
+        LIMIT 1`).Scan(
 		&t.ID, &t.ExprID, &t.Arg1, &t.Arg2, &t.Operation, &t.OperationTime,
 	)
 	if err != nil {
@@ -240,7 +239,7 @@ func (s *Storage) GetPendingTask() (*Task, error) {
 	}
 
 	_, err = tx.Exec(
-		"UPDATE tasks SET started_at = NOW() WHERE id = ?",
+		"UPDATE tasks SET started_at = datetime('now') WHERE id = ?",
 		t.ID,
 	)
 	if err != nil {
@@ -308,7 +307,7 @@ func (s *Storage) CompleteTask(taskID string, result float64) error {
 
 	var exprID int
 	err = tx.QueryRow(
-		"UPDATE tasks SET completed = TRUE, result = ? WHERE id = ? RETURNING expression_id",
+		"UPDATE tasks SET completed = TRUE, result = ?, completed_at = datetime('now') WHERE id = ? RETURNING expression_id",
 		result, taskID,
 	).Scan(&exprID)
 	if err != nil {
