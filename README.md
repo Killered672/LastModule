@@ -83,9 +83,7 @@ curl -X POST http://localhost:8080/api/v1/login \
 curl --location 'http://localhost:8080/api/v1/calculate' \
 --header 'Content-Type: application/json' \
 --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
---data '{
-  "expression": "2+2*2"
-}'
+--data '{"expression": "2+2*2"}'
 ```
 
 Примеры использования:
@@ -96,10 +94,7 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
 curl --location 'http://localhost:8080/api/v1/calculate' \
 --header 'Content-Type: application/json' \
 --header 'Authorization: Bearer YOUR_JWT_TOKEN' \
---data '
-{
-  "expression": "2*2+2"
-}'
+--data '{"expression": "2+2*2"}'
 ```
 
 Ответ:

@@ -483,15 +483,10 @@ func (o *Orchestrator) RunServer() error {
 		}
 	}()
 
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/api/v1/register", o.registerHandler)
-	mux.HandleFunc("/api/v1/login", o.loginHandler)
-
 	protected := http.NewServeMux()
-	protected.HandleFunc("/api/v1/calculate", o.calculateHandler)
-	protected.HandleFunc("/api/v1/expressions", o.expressionsHandler)
-	protected.HandleFunc("/api/v1/expressions/", o.expressionIDHandler)
+	protected.HandleFunc("/calculate", o.calculateHandler)
+	protected.HandleFunc("/expressions", o.expressionsHandler)
+	protected.HandleFunc("/expressions/", o.expressionIDHandler)
 	protected.HandleFunc("/internal/task", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			o.getTaskHandler(w, r)
@@ -501,6 +496,11 @@ func (o *Orchestrator) RunServer() error {
 			http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
 		}
 	})
+
+	mux := http.NewServeMux()
+	mux.Handle("/api/v1/", o.authMiddleware(protected))
+	mux.HandleFunc("/api/v1/login", o.loginHandler)
+	mux.HandleFunc("/api/v1/register", o.registerHandler)
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"API Not Found"}`, http.StatusNotFound)
