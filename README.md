@@ -7,11 +7,11 @@
 
 1)Убедитесь, что у вас установлен Go (версия 1.16 или выше).
 
-2)Убедитесь, что у вас установлен SQLite3.можно командой для windows через powershell(winget install --id=SQLite.SQLite  -e)
+2)Убедитесь, что у вас установлен SQLite3(можно командой для windows через powershell(winget install --id=SQLite.SQLite  -e)).
 
-3)включите CGO если выключен командой export CGO_ENABLED=1
+3)включите CGO (если выключен) командой export CGO_ENABLED=1.
 
-4)скачайте gcc compiler.гайд есть на сайте. убедитесь что используете правильную 64-bit модель(https://www.codewithharry.com/blogpost/how-to-install-gnu-gcc-compiler-on-windows)
+4)скачайте gcc compiler.(гайд есть на сайте. убедитесь что используете правильную 64-bit модель(https://www.codewithharry.com/blogpost/how-to-install-gnu-gcc-compiler-on-windows))
 
 5)Скопируйте репозиторий(через git bash):
 

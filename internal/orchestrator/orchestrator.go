@@ -245,8 +245,9 @@ func (o *Orchestrator) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 func (o *Orchestrator) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Incoming request: %s %s", r.Method, r.URL.Path)
-		if r.URL.Path == "/api/v1/login" || r.URL.Path == "/api/v1/register" {
+		log.Printf("Incoming request to: %s", r.URL.Path)
+
+		if r.URL.Path == "/login" || r.URL.Path == "/register" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -483,6 +484,11 @@ func (o *Orchestrator) RunServer() error {
 		}
 	}()
 
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/api/v1/login", o.loginHandler)
+	mux.HandleFunc("/api/v1/register", o.registerHandler)
+
 	protected := http.NewServeMux()
 	protected.HandleFunc("/api/v1/calculate", o.calculateHandler)
 	protected.HandleFunc("/api/v1/expressions", o.expressionsHandler)
@@ -496,8 +502,7 @@ func (o *Orchestrator) RunServer() error {
 		}
 	})
 
-	mux := http.NewServeMux()
-	mux.Handle("/", o.authMiddleware(protected))
+	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", o.authMiddleware(protected)))
 
 	mux.HandleFunc("/api/v1/login", o.loginHandler)
 	mux.HandleFunc("/api/v1/register", o.registerHandler)
