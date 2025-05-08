@@ -245,6 +245,7 @@ func (o *Orchestrator) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 func (o *Orchestrator) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Incoming request: %s %s", r.Method, r.URL.Path)
 		if r.URL.Path == "/api/v1/login" || r.URL.Path == "/api/v1/register" {
 			next.ServeHTTP(w, r)
 			return
