@@ -490,10 +490,9 @@ func (o *Orchestrator) RunServer() error {
 	mux.HandleFunc("/api/v1/register", o.registerHandler)
 
 	protected := http.NewServeMux()
-	protected.HandleFunc("/api/v1/calculate", o.calculateHandler)
-	protected.HandleFunc("/api/v1/expressions", o.expressionsHandler)
-	protected.HandleFunc("/api/v1/expressions/", o.expressionIDHandler)
-
+	protected.HandleFunc("/calculate", o.calculateHandler)
+	protected.HandleFunc("/expressions", o.expressionsHandler)
+	protected.HandleFunc("/expressions/", o.expressionIDHandler)
 	protected.HandleFunc("/internal/task", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			o.getTaskHandler(w, r)
