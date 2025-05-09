@@ -49,6 +49,10 @@ type Storage struct {
 	db *sql.DB
 }
 
+func (s *Storage) GetDB() *sql.DB {
+	return s.db
+}
+
 func (s *Storage) CreateUser(login, password string) (int, error) {
 	var id int
 	err := s.db.QueryRow(
