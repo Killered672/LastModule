@@ -13,7 +13,9 @@
 
 4)скачайте gcc compiler.(гайд есть на сайте. убедитесь что используете правильную 64-bit модель(https://www.codewithharry.com/blogpost/how-to-install-gnu-gcc-compiler-on-windows))
 
-5)Скопируйте репозиторий(через git bash):
+6)Для работы фронтэнда скачайте Node.js на сайте (https://nodejs.org/en/download)
+
+7)Скопируйте репозиторий(через git bash):
 
 ```bash
 git clone https://github.com/Killered672/LastModule
@@ -202,6 +204,22 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
   Worker: error computing task : division by zero
 }
 ```
+
+Фронтэнд:
+Для запуска перейдите в папку frontend командой
+
+```bash
+cd lastmodule/frontend
+```
+
+И выполните:
+
+```bash
+npm install
+npm run dev
+```
+Фронтенд будет доступен по адресу http://localhost:5173
+Чтобы он работал должен быть полностью запущен бекэнд
 
 Тесты для agent запускаются тоже через git bash(или можно через visual studio code):
 
