@@ -217,6 +217,18 @@ cd LastModule
 go test ./internal/agent/agent_calculation_test.go
 ```
 
+Или
+
+```bash
+go test ./cmd/internal_test.go (интеграционный)
+```
+
+Или
+
+```bash
+go test ./internal/storage/storage_test.go
+```
+
 3)При успешном прохождение теста должен вывестись ответ:
 
 ```bash
