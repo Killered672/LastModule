@@ -66,10 +66,11 @@ Starting worker 0
 Starting worker 1
 Starting worker 2
 Starting worker 3
-2025/05/08 15:39:33 Worker 2: error getting task: rpc error: code = Unknown desc = not found
-2025/05/08 15:39:33 Worker 0: error getting task: rpc error: code = Unknown desc = not found
-2025/05/08 15:39:33 Worker 3: error getting task: rpc error: code = Unknown desc = not found
-2025/05/08 15:39:33 Worker 1: error getting task: rpc error: code = Unknown desc = not found
+
+Worker 2: error getting task: rpc error: code = Unknown desc = not found
+Worker 0: error getting task: rpc error: code = Unknown desc = not found
+Worker 3: error getting task: rpc error: code = Unknown desc = not found
+Worker 1: error getting task: rpc error: code = Unknown desc = not found
 (это потому что нет активных задач)
 
 Регестрируем нового пользователя:
@@ -221,7 +222,7 @@ npm run dev
 Фронтенд будет доступен по адресу http://localhost:5173
 Чтобы он работал должен быть полностью запущен бекэнд
 
-Тесты для agent запускаются тоже через git bash(или можно через visual studio code):
+Тесты запускаются тоже через git bash(или можно через visual studio code):
 
 1)Сначала опять переходим в папку с модулем.
 
@@ -254,7 +255,7 @@ ok  	calc_service/internal/evaluator	0.001s
 ```
 
 4)При ошибке в тестах будет указано где она совершена.
-P.S ошибка связанная с не указанным ErrDivivsionByZero появляется так как в функции тестирования я ее не оглашаю,
+P.S ошибка в тесте агента связанная с не указанным ErrDivivsionByZero появляется так как в функции тестирования я ее не оглашаю,
 она создает конфликты в visual studio code так как уже присутствует в самом агенте
 
 Мой тг для связи: @Killered_656(можно писать не только по проекту)
