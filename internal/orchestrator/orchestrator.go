@@ -363,7 +363,13 @@ func (o *Orchestrator) expressionIDHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	idStr := r.URL.Path[len("/api/v1/expressions/"):]
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 2 {
+		http.Error(w, `{"error":"Invalid expression ID"}`, http.StatusBadRequest)
+		return
+	}
+	idStr := pathParts[len(pathParts)-1]
+
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, `{"error":"Invalid expression ID"}`, http.StatusBadRequest)
@@ -379,16 +385,6 @@ func (o *Orchestrator) expressionIDHandler(w http.ResponseWriter, r *http.Reques
 		http.Error(w, `{"error":"Failed to get expression"}`, http.StatusInternalServerError)
 		return
 	}
-
-	expr := &Expression{
-		ID:     idStr,
-		Expr:   dbExpr.Expression,
-		Status: dbExpr.Status,
-		Result: dbExpr.Result,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"expression": expr})
 
 	response := map[string]interface{}{
 		"id":         idStr,

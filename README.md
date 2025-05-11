@@ -121,7 +121,7 @@ curl --location 'http://localhost:8080/api/v1/calculate' \
 
 ```bash
 curl --location 'http://localhost:8080/api/v1/expressions' \
---header 'Authorization: Bearer OUR_JWT_TOKEN'
+--header 'Authorization: Bearer YOUR_JWT_TOKEN'
 ```
 
 Вывод:
